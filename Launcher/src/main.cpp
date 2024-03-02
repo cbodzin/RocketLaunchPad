@@ -7,6 +7,7 @@
 #include <Arduino.h>
 #include <RFM69.h>
 #include <RFM69_ATC.h>
+#include <EEPROM.h>
 
 //*********************************************************************************************
 //************ IMPORTANT SETTINGS - YOU MUST CHANGE/CONFIGURE TO FIT YOUR HARDWARE ************
@@ -15,9 +16,10 @@
 // Address 0 is special (broadcast), messages to address 0 are received by all *listening* nodes (ie. active RX mode)
 // Gateway ID should be kept at ID=1 for simplicity, although this is not a hard constraint
 //*********************************************************************************************
-#define NODEID        2    // keep UNIQUE for each node on same network
-#define NETWORKID     100  // keep IDENTICAL on all nodes that talk to each other
-#define GATEWAYID     1    // "central" node
+#define NETWORKID       100  // keep IDENTICAL on all nodes that talk to each other
+#define GATEWAYID       1    // "central" node
+#define DEFAULT_NODEID  2    // default NODEID
+#define MAX_NODEID      8    // arbitrarily set to 8; if you want a 100 launcher controller go for it.
 
 //*********************************************************************************************
 // Frequency should be set to match the radio module hardware tuned frequency,
@@ -49,6 +51,9 @@
 #define IRQ_PIN       4           // This is the interrupt pin when packets come in
 #define LED_PIN       8
 #define BUTTON_PIN    9
+#define EEPROM_SIZE   1           // define the number of bytes you want to access from SPI Flash
+
+
 
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
@@ -63,6 +68,9 @@ typedef struct {
 } controllerPayload;
 controllerPayload controllerData;
 
+// Set default NODEID to 2, but we'll look it up in flash
+int NODEID;     
+
 void setup() {
   Serial.begin(SERIAL_BAUD);
   while (!Serial); // Wait for the Serial Interface to stabilize
@@ -75,6 +83,18 @@ void setup() {
   digitalWrite(RST_PIN,LOW);
   delay(10);
   Serial.println("Finished waking up.");
+
+  // Let's get our NODEID from Flash at spot 0
+  EEPROM.begin(EEPROM_SIZE);
+  NODEID = EEPROM.read(0);
+  Serial.print("Node ID in flash is ");
+  Serial.println(NODEID);
+  // If for whatever reason we read an invalid value then just reset to default
+  if ((NODEID < DEFAULT_NODEID) || (NODEID > MAX_NODEID)) {
+    NODEID = DEFAULT_NODEID;
+  Serial.print("Resetting to default node ID of ");
+  Serial.println(NODEID);
+  }
 
   radio.initialize(FREQUENCY,NODEID,NETWORKID);
 #ifdef IS_RFM69HW_HCW
