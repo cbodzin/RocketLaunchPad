@@ -2,10 +2,6 @@
 	"folders": [
 		{
 			"path": "../.."
-		},
-		{
-			"name": "Launcher",
-			"path": "../../../../../../../../Google Drive/My Drive/VSCode/RocketLaunchPad/Launcher"
 		}
 	],
 	"settings": {}
