@@ -55,6 +55,9 @@ const int touchThreshold = 40;
 // Set default NODEID to 2, but we'll look it up in flash
 int NODEID;     
 
+/*
+      Setup for ESP32
+*/
 void setup() {
   Serial.begin(SERIAL_BAUD);
   while (!Serial); // Wait for the Serial Interface to stabilize
@@ -127,6 +130,9 @@ void changeNodeID() {
   radio.setAddress(NODEID);
 }
 
+/*
+      Main loop
+*/
 void loop() {
 
   // Check touch sensor to see if we should change our node ID
