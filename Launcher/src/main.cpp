@@ -71,7 +71,7 @@ void changeNodeID() {
     NODEID = DEFAULT_NODEID;
   }
   Serial.printf("Saving node ID as %d\n", NODEID);
-  EEPROM.write(NODEID, 0);
+  EEPROM.write(0,NODEID);
   EEPROM.commit();
   
   // Now re-initialize the radio 
@@ -99,11 +99,11 @@ void SendHTML(int nodeID, bool continuityState) {
   ptr +="</head>\n";
   ptr +="<body>\n";
   ptr +="<h1>Launcher Node ";
-  ptr +=String(NODEID);
-  ptr +="/h1>\n";
+  ptr += NODEID;
+  ptr +="</h1>\n";
   ptr +="<h3>Continuity: ";
   ptr += (continuityState ? "TRUE": "FALSE");
-  ptr += "/h3>\n";
+  ptr += "</h3>\n";
   
   ptr +="<p>Change Node ID</p><a class=\"button button-on\" href=\"/changeNode\">Next</a>\n";
   // if(led1stat)
@@ -121,8 +121,11 @@ void handle_OnConnect() {
 
 void handle_changeNode() {
   changeNodeID();
+  handle_OnConnect();
 }
+
 void handle_NotFound(){
+  Serial.println("Invalid requuest received...");
   server.send(404, "text/plain", "Not found");
 }
 
@@ -150,8 +153,10 @@ void setup() {
   // If for whatever reason we read an invalid value then just reset to default
   if ((NODEID < DEFAULT_NODEID) || (NODEID > MAX_NODEID)) {
     NODEID = DEFAULT_NODEID;
-  Serial.print("Resetting to default node ID of ");
-  Serial.println(NODEID);
+    Serial.print("Resetting to default node ID of ");
+    Serial.println(NODEID);
+    EEPROM.write(0,NODEID);
+    EEPROM.commit();
   }
 
   radio.initialize(FREQUENCY,NODEID,NETWORKID);
@@ -199,7 +204,14 @@ void setup() {
 /*
       Main loop
 */
+int loopCounter = 0;
 void loop() {
+
+  // loopCounter++;
+  // Serial.printf("Start of loop %d...\n", loopCounter);
+
+  // Have the webserver do any stuff needed
+  server.handleClient();
 
   //check for any received packets
   if (radio.receiveDone())
@@ -235,5 +247,8 @@ void loop() {
     }
     Serial.println();
   }
+
+  // delay(1000);
+  // Serial.printf("End of loop %d...\n", loopCounter);
 
 }
