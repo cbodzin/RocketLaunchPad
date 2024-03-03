@@ -51,9 +51,8 @@
 #define IRQ_PIN       4           // This is the interrupt pin when packets come in
 #define LED_PIN       8
 #define BUTTON_PIN    9
+#define TOUCH_PIN     13
 #define EEPROM_SIZE   1           // define the number of bytes you want to access from SPI Flash
-
-
 
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
@@ -67,6 +66,8 @@ typedef struct {
   byte          launchCommand; //uptime in ms
 } controllerPayload;
 controllerPayload controllerData;
+const int touchThreshold = 40;
+
 
 // Set default NODEID to 2, but we'll look it up in flash
 int NODEID;     
@@ -128,7 +129,29 @@ void setup() {
 
 }
 
+// Change the node ID
+void changeNodeID() {
+  NODEID++;
+  if (NODEID > MAX_NODEID) {
+    Serial.printf("NODEID above maximum value of %d, resetting to to %d.\n", MAX_NODEID, DEFAULT_NODEID);
+    NODEID = DEFAULT_NODEID;
+  }
+  Serial.printf("Saving node ID as %d\n", NODEID);
+  EEPROM.write(NODEID, 0);
+  EEPROM.commit();
+  
+  // Now re-initialize the radio 
+  radio.setAddress(NODEID);
+}
+
 void loop() {
+
+  // Check touch sensor to see if we should change our node ID
+  int touchValue = touchRead(TOUCH_PIN);
+  if (touchValue < touchThreshold ) {
+    Serial.println("Touch detected, adding delay.");  
+    changeNodeID();
+  }
 
   //check for any received packets
   if (radio.receiveDone())
