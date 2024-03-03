@@ -21,13 +21,19 @@
 // Other common definitions
 #define SERIAL_BAUD   115200
 
-// launchCommand structures
+// A structure for the RFM69s to exchange data
 typedef struct {
-  int           nodeId; //store this nodeId
-  byte          launchCommand; //uptime in ms
+  int           nodeId;
+  byte          launchCommand;
+  byte          launchResult;
 } controllerPayload;
 
+// launchCommand 
 #define LC_CHECK_CONTINUITY         1
 #define LC_ARM                      2
 #define LC_FIRE_IGNITER             3
 #define LC_DISARM                   4
+
+// launchResult
+#define LC_SUCCESS                  1
+#define LC_FAIL                     0
