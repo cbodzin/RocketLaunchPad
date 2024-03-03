@@ -8,18 +8,7 @@
 #include <RFM69.h>
 #include <RFM69_ATC.h>
 #include <EEPROM.h>
-
-//*********************************************************************************************
-//************ IMPORTANT SETTINGS - YOU MUST CHANGE/CONFIGURE TO FIT YOUR HARDWARE ************
-//*********************************************************************************************
-// Address IDs are 10bit, meaning usable ID range is 1..1023
-// Address 0 is special (broadcast), messages to address 0 are received by all *listening* nodes (ie. active RX mode)
-// Gateway ID should be kept at ID=1 for simplicity, although this is not a hard constraint
-//*********************************************************************************************
-#define NETWORKID       100  // keep IDENTICAL on all nodes that talk to each other
-#define GATEWAYID       1    // "central" node
-#define DEFAULT_NODEID  2    // default NODEID
-#define MAX_NODEID      8    // arbitrarily set to 8; if you want a 100 launcher controller go for it.
+#include <RocketLaunchPad.h>
 
 //*********************************************************************************************
 // Frequency should be set to match the radio module hardware tuned frequency,
@@ -33,7 +22,6 @@
 //#define FREQUENCY   RF69_868MHZ
 #define FREQUENCY     RF69_915MHZ
 //#define FREQUENCY_EXACT 916000000 // you may define an exact frequency/channel in Hz
-#define ENCRYPTKEY    "B0dzinLauncher!!" //exactly the same 16 characters/bytes on all nodes!
 #define IS_RFM69HW_HCW  //uncomment only for RFM69HW/HCW! Leave out if you have RFM69W/CW!
 //*********************************************************************************************
 //Auto Transmission Control - dials down transmit power to save battery
@@ -46,7 +34,6 @@
 //*********************************************************************************************
 
 // Set up some constants
-#define SERIAL_BAUD   115200
 #define RST_PIN       5           // This is the pin we'll use to awaken the radio
 #define IRQ_PIN       4           // This is the interrupt pin when packets come in
 #define LED_PIN       8
@@ -61,13 +48,9 @@
 #endif
 
 bool spy = false;   //set to 'true' to sniff all packets on the same network
-typedef struct {
-  int           nodeId; //store this nodeId
-  byte          launchCommand; //uptime in ms
-} controllerPayload;
+
 controllerPayload controllerData;
 const int touchThreshold = 40;
-
 
 // Set default NODEID to 2, but we'll look it up in flash
 int NODEID;     
@@ -157,9 +140,16 @@ void loop() {
   if (radio.receiveDone())
   {
     if (radio.DATALEN != sizeof(controllerPayload)) {
-      Serial.print("Invalid payload received, not matching Payload struct!");
+      Serial.print("Invalid payload received, not matching proper structructure!");
     } else {
       controllerData = *(controllerPayload*)radio.DATA; //assume radio.DATA actually contains our struct and not something else
+    }
+
+    // OK, let's do something!
+    switch (controllerData.launchCommand) {
+      case LC_CHECK_CONTINUITY:
+        Serial.println("Checking continuity...");
+        break;
     }
 
     if (radio.ACKRequested())
