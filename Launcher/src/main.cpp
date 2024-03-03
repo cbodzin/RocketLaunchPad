@@ -149,7 +149,7 @@ void loop() {
   // Check touch sensor to see if we should change our node ID
   int touchValue = touchRead(TOUCH_PIN);
   if (touchValue < touchThreshold ) {
-    Serial.println("Touch detected, adding delay.");  
+    Serial.println("Touch detected, changing node ID.");  
     changeNodeID();
   }
 
