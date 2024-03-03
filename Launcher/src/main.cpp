@@ -8,7 +8,7 @@
 #include <RFM69.h>
 #include <RFM69_ATC.h>
 #include <EEPROM.h>
-#include <RocketLaunchPad.h>
+#include "RocketLaunchPad.h"
 
 //*********************************************************************************************
 // Frequency should be set to match the radio module hardware tuned frequency,
@@ -149,6 +149,15 @@ void loop() {
     switch (controllerData.launchCommand) {
       case LC_CHECK_CONTINUITY:
         Serial.println("Checking continuity...");
+        break;
+      case LC_ARM:
+        Serial.println("Arming...");
+        break;
+      case LC_FIRE_IGNITER:
+        Serial.println("Launching...");
+        break;
+      case LC_DISARM:
+        Serial.println("Disarming...");
         break;
     }
 
