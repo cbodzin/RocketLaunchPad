@@ -9,6 +9,8 @@
 #include <RFM69_ATC.h>
 #include <EEPROM.h>
 #include "RocketLaunchPad.h"
+#include <WiFi.h>
+#include <WebServer.h>
 
 //*********************************************************************************************
 // Frequency should be set to match the radio module hardware tuned frequency,
@@ -37,8 +39,6 @@
 #define RST_PIN       5           // This is the pin we'll use to awaken the radio
 #define IRQ_PIN       4           // This is the interrupt pin when packets come in
 #define LED_PIN       8
-#define BUTTON_PIN    9
-#define TOUCH_PIN     13
 #define EEPROM_SIZE   1           // define the number of bytes you want to access from SPI Flash
 
 #ifdef ENABLE_ATC
@@ -49,11 +49,85 @@
 
 bool spy = false;   //set to 'true' to sniff all packets on the same network
 
+// For communications with RFM69
 controllerPayload controllerData;
-const int touchThreshold = 40;
+
+// Webserver setup
+const char* ssid = "BODZINLC";  // Enter SSID here
+const char* wifiPwd = "12345678";  //Enter Password here
+IPAddress local_ip(192,168,1,1);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
+WebServer server(80);
 
 // Set default NODEID to 2, but we'll look it up in flash
-int NODEID;     
+int NODEID;
+
+// Change the node ID
+void changeNodeID() {
+  NODEID++;
+  if (NODEID > MAX_NODEID) {
+    Serial.printf("NODEID above maximum value of %d, resetting to to %d.\n", MAX_NODEID, DEFAULT_NODEID);
+    NODEID = DEFAULT_NODEID;
+  }
+  Serial.printf("Saving node ID as %d\n", NODEID);
+  EEPROM.write(0,NODEID);
+  EEPROM.commit();
+  
+  // Now re-initialize the radio 
+  radio.setAddress(NODEID);
+}
+
+bool getContinuity() {
+  // Stubbed out for now
+  return true;
+}
+
+void SendHTML(int nodeID, bool continuityState) {
+  String ptr = "<!DOCTYPE html> <html>\n";
+  ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  ptr +="<title>Launcher Status</title>\n";
+  ptr +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
+  ptr +="body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
+  ptr +=".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
+  ptr +=".button-on {background-color: #3498db;}\n";
+  ptr +=".button-on:active {background-color: #2980b9;}\n";
+  ptr +=".button-off {background-color: #34495e;}\n";
+  ptr +=".button-off:active {background-color: #2c3e50;}\n";
+  ptr +="p {font-size: 14px;color: #888;margin-bottom: 10px;}\n";
+  ptr +="</style>\n";
+  ptr +="</head>\n";
+  ptr +="<body>\n";
+  ptr +="<h1>Launcher Node ";
+  ptr += NODEID;
+  ptr +="</h1>\n";
+  ptr +="<h3>Continuity: ";
+  ptr += (continuityState ? "TRUE": "FALSE");
+  ptr += "</h3>\n";
+  
+  ptr +="<p>Change Node ID</p><a class=\"button button-on\" href=\"/changeNode\">Next</a>\n";
+  // if(led1stat)
+  // {ptr +="<p>LED1 Status: ON</p><a class=\"button button-off\" href=\"/led1off\">OFF</a>\n";}
+  // else
+  // {ptr +="<p>LED1 Status: OFF</p><a class=\"button button-on\" href=\"/led1on\">ON</a>\n";}
+
+  server.send(200, "text/html", ptr);
+}
+
+void handle_OnConnect() {
+  Serial.println("Connection requuest received...");
+  SendHTML(NODEID, getContinuity());
+}
+
+void handle_changeNode() {
+  changeNodeID();
+  handle_OnConnect();
+}
+
+void handle_NotFound(){
+  Serial.println("Invalid requuest received...");
+  server.send(404, "text/plain", "Not found");
+}
 
 /*
       Setup for ESP32
@@ -79,8 +153,10 @@ void setup() {
   // If for whatever reason we read an invalid value then just reset to default
   if ((NODEID < DEFAULT_NODEID) || (NODEID > MAX_NODEID)) {
     NODEID = DEFAULT_NODEID;
-  Serial.print("Resetting to default node ID of ");
-  Serial.println(NODEID);
+    Serial.print("Resetting to default node ID of ");
+    Serial.println(NODEID);
+    EEPROM.write(0,NODEID);
+    EEPROM.commit();
   }
 
   radio.initialize(FREQUENCY,NODEID,NETWORKID);
@@ -112,35 +188,30 @@ void setup() {
   char buff[50];
   sprintf(buff, "\nListening at %d Mhz...", FREQUENCY==RF69_433MHZ ? 433 : FREQUENCY==RF69_868MHZ ? 868 : 915);
   Serial.println(buff);
-
-}
-
-// Change the node ID
-void changeNodeID() {
-  NODEID++;
-  if (NODEID > MAX_NODEID) {
-    Serial.printf("NODEID above maximum value of %d, resetting to to %d.\n", MAX_NODEID, DEFAULT_NODEID);
-    NODEID = DEFAULT_NODEID;
-  }
-  Serial.printf("Saving node ID as %d\n", NODEID);
-  EEPROM.write(NODEID, 0);
-  EEPROM.commit();
   
-  // Now re-initialize the radio 
-  radio.setAddress(NODEID);
+  WiFi.softAP(ssid, wifiPwd);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  delay(100);
+  
+  server.on("/", handle_OnConnect);
+  server.on("/changeNode", handle_changeNode);
+  server.onNotFound(handle_NotFound);
+  server.begin();
+  Serial.println("HTTP server started");  
+
 }
 
 /*
       Main loop
 */
+int loopCounter = 0;
 void loop() {
 
-  // Check touch sensor to see if we should change our node ID
-  int touchValue = touchRead(TOUCH_PIN);
-  if (touchValue < touchThreshold ) {
-    Serial.println("Touch detected, changing node ID.");  
-    changeNodeID();
-  }
+  // loopCounter++;
+  // Serial.printf("Start of loop %d...\n", loopCounter);
+
+  // Have the webserver do any stuff needed
+  server.handleClient();
 
   //check for any received packets
   if (radio.receiveDone())
@@ -165,6 +236,8 @@ void loop() {
       case LC_DISARM:
         Serial.println("Disarming...");
         break;
+      default:
+        break;
     }
 
     if (radio.ACKRequested())
@@ -174,5 +247,8 @@ void loop() {
     }
     Serial.println();
   }
+
+  // delay(1000);
+  // Serial.printf("End of loop %d...\n", loopCounter);
 
 }
