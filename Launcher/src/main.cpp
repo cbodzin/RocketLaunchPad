@@ -115,6 +115,7 @@ void SendHTML(int nodeID, bool continuityState) {
 }
 
 void handle_OnConnect() {
+  Serial.println("Connection requuest received...");
   SendHTML(NODEID, getContinuity());
 }
 
@@ -222,6 +223,8 @@ void loop() {
         break;
       case LC_DISARM:
         Serial.println("Disarming...");
+        break;
+      default:
         break;
     }
 
